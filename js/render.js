@@ -119,10 +119,10 @@ export function createRenderer(canvas) {
     ctx.save();
     worldTf(ctx); worldClip(ctx);
     // Warm wash over everything the sun touches, then the shadows on top.
-    ctx.fillStyle = `rgba(255,190,110,${0.1 * sunStrength(s.sun)})`;
+    ctx.fillStyle = `rgba(255,190,110,${0.22 * sunStrength(s.sun)})`;
     ctx.fillRect(0, 0, W, H);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.globalAlpha = 0.62;
+    ctx.globalAlpha = 0.72;
     ctx.drawImage(shade, 0, 0);
     ctx.restore();
   }
@@ -269,6 +269,45 @@ export function createRenderer(canvas) {
     });
   }
 
+  const END_LABEL = { won: 'Home!', burned: 'Burns here', zapped: 'Zapped', webbed: 'Web!' };
+
+  // Dotted forecast of the flight if nothing changes: white in shade, red in sun.
+  function drawPath(s, p, time) {
+    if (!p || !p.points.length) return;
+    const ready = s.status === 'ready';
+    if (!ready && s.status !== 'flying') return;
+    const alpha = ready ? 1 : 0.45;
+    const pts = p.points;
+    for (let i = 0; i < pts.length; i += 2) {
+      const q = pts[i];
+      const pulse = ready ? 0.6 + 0.4 * Math.sin(time * 6 - i * 0.25) : 1;
+      ctx.globalAlpha = alpha * pulse;
+      ctx.fillStyle = q.sun ? '#ff5d4a' : '#ffffff';
+      ctx.beginPath(); ctx.arc(q.x, q.y, q.sun ? 5 : 3.5, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = alpha;
+    const label = p.end === 'flying' ? (p.target == null ? 'No light in sight' : '') : END_LABEL[p.end];
+    if (label) {
+      const good = p.end === 'won';
+      ctx.fillStyle = good ? '#9ef0b0' : '#ff6b5a';
+      if (!good) {
+        ctx.lineWidth = 5; ctx.strokeStyle = '#ff6b5a';
+        ctx.beginPath();
+        ctx.moveTo(p.x - 12, p.y - 12); ctx.lineTo(p.x + 12, p.y + 12);
+        ctx.moveTo(p.x + 12, p.y - 12); ctx.lineTo(p.x - 12, p.y + 12);
+        ctx.stroke();
+      }
+      ctx.font = '600 30px Outfit, system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(15,10,31,0.85)';
+      const ly = p.y < 120 ? p.y + 52 : p.y - 30;
+      const lx = Math.max(110, Math.min(W - 110, p.x));
+      ctx.strokeText(label, lx, ly);
+      ctx.fillText(label, lx, ly);
+    }
+    ctx.globalAlpha = 1;
+  }
+
   function drawMoth(s, time) {
     const m = s.moth;
     // Dotted line to whatever the moth is chasing: shows its intent.
@@ -347,7 +386,7 @@ export function createRenderer(canvas) {
     ctx.beginPath(); ctx.arc(cx + Math.cos(a) * r, cy - Math.sin(a) * r, 7, 0, Math.PI * 2); ctx.fill();
   }
 
-  function draw(s, time, dt) {
+  function draw(s, time, dt, preview) {
     if (!canvas.width || !canvas.height) return;
     const blocks = blocksAt(s.level, s.t);
     const m = s.moth;
@@ -361,6 +400,7 @@ export function createRenderer(canvas) {
     worldTf(ctx); worldClip(ctx);
     drawBlocks(s, blocks);
     drawProps(s, time);
+    drawPath(s, preview, time);
     drawMoth(s, time);
     drawParticles(dt);
     drawGauge(s);

@@ -5,7 +5,7 @@
 export const LEVELS = [
   {
     name: 'First Flight',
-    hint: 'Sunlight burns. Shadow is safe. Release the moth.',
+    hint: 'Dots show where the moth will fly. White = safe shade. Tap Release (or the moth)!',
     sun: 90, par: 6,
     moth: [150, 650], goal: [850, 650],
     blocks: [[80, 300, 860, 40]],
@@ -13,7 +13,7 @@ export const LEVELS = [
   },
   {
     name: 'Drag the Sun',
-    hint: 'Drag anywhere to move the sun. Find the shade, then release.',
+    hint: 'Red dots = sunburn. Drag left/right to move the sun until the path turns white.',
     sun: 130, par: 6,
     moth: [150, 700], goal: [850, 700],
     blocks: [[300, 160, 900, 60]],
@@ -21,7 +21,7 @@ export const LEVELS = [
   },
   {
     name: 'Lights Out',
-    hint: 'Moths chase the brightest light they can see. Tap a lamp to switch it.',
+    hint: 'The moth chases the brightest light. Tap lamps off until the dots reach the moon jar.',
     sun: 90, par: 8,
     moth: [120, 650], goal: [880, 650],
     blocks: [[0, 330, 1000, 40]],
@@ -39,8 +39,8 @@ export const LEVELS = [
   },
   {
     name: 'Golden Hour',
-    hint: 'Low sun, long shadows.',
-    sun: 90, par: 7,
+    hint: 'Low sun, long shadows. Find an angle where the dots stay white.',
+    sun: 150, par: 7,
     moth: [120, 800], goal: [880, 820],
     blocks: [[0, 120, 380, 40], [620, 560, 380, 40]],
     pollen: [[500, 820], [300, 600], [700, 760]],

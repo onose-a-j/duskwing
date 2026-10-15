@@ -210,7 +210,14 @@ canvas.addEventListener('pointermove', (e) => {
 
 function endDrag(e) {
   if (!drag || e.pointerId !== drag.id) return;
-  if (!drag.moved && drag.lamp >= 0 && e.type === 'pointerup') S.toggleLamp(state, drag.lamp);
+  if (!drag.moved && e.type === 'pointerup') {
+    if (drag.lamp >= 0) S.toggleLamp(state, drag.lamp);
+    else if (state.status === 'ready') {
+      // Tapping the moth itself releases it: the first thing new players try.
+      const w = R.toWorld(e.clientX, e.clientY);
+      if (Math.hypot(w.x - state.moth.x, w.y - state.moth.y) < 70) doRelease();
+    }
+  }
   drag = null;
   canvas.classList.remove('dragging');
 }
@@ -266,6 +273,20 @@ $('res-share').onclick = share;
 function layout() { R.resize(innerWidth, innerHeight, mode === 'play' ? HUD_TOP : 0, mode === 'play' ? HUD_BOTTOM : 0); }
 addEventListener('resize', layout);
 
+// Path preview: re-simulated when the player changes something, and a few times a
+// second anyway because the moth and clouds keep moving.
+let preview = null, previewKey = '', previewAge = 0;
+function forecast(dt) {
+  previewAge += dt;
+  const key = `${state.sun.toFixed(1)}|${state.lamps.map((l) => +l.on).join('')}|${state.status}`;
+  if (key !== previewKey || previewAge > 0.2) {
+    preview = S.predictPath(state, 8, STEP);
+    previewKey = key;
+    previewAge = 0;
+  }
+  return preview;
+}
+
 let last = performance.now(), acc = 0, clock = 0, lastMode = null;
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
@@ -296,7 +317,7 @@ function frame(now) {
     }
   }
 
-  R.draw(state, clock, dt);
+  R.draw(state, clock, dt, mode === 'play' ? forecast(dt) : null);
   requestAnimationFrame(frame);
 }
 

@@ -12,7 +12,7 @@ const MOTH_R = 9;
 const BURN = 0.55;      // hp per second at noon
 const HEAL = 0.3;       // hp per second in shadow
 const BRIGHT = { lamp: 1.5, zap: 2.2, goal: 1 };
-const REACH = { goal: 30, zap: 26, pollen: 28 };
+const REACH = { goal: 48, zap: 26, pollen: 28 };
 
 export function mulberry32(a) {
   return function () {
@@ -46,7 +46,7 @@ export function createState(level, seed = 1) {
     lamps: (level.lamps || []).map(([x, y, on, kind = 'lamp']) => ({ x, y, kind, on: kind === 'zap' ? true : !!on })),
     webs: (level.webs || []).map(([x, y, r]) => ({ x, y, r })),
     pollen: (level.pollen || []).map(([x, y]) => ({ x, y, got: false })),
-    rng: mulberry32(seed),
+    seed: seed >>> 0, // rng state lives in plain data so a state can be copied for previews
     events: [],
   };
 }
@@ -124,6 +124,13 @@ export function release(s) {
   s.events.push({ type: 'release' });
 }
 
+function rand(s) {
+  s.seed = (s.seed + 0x6d2b79f5) | 0;
+  let t = Math.imul(s.seed ^ (s.seed >>> 15), 1 | s.seed);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+
 function end(s, status) {
   s.status = status;
   s.events.push({ type: status, x: s.moth.x, y: s.moth.y });
@@ -157,7 +164,7 @@ export function step(s, dt) {
   const target = pickTarget(s, blocks);
   m.target = target ? target.id : null;
 
-  m.wander += (s.rng() - 0.5) * 0.5;
+  m.wander += (rand(s) - 0.5) * 0.5;
   let ax = Math.cos(m.wander) * WANDER, ay = Math.sin(m.wander) * WANDER;
   if (target) {
     let dx = target.x - m.x, dy = target.y - m.y;
@@ -201,6 +208,26 @@ export function step(s, dt) {
     }
   }
   if (Math.hypot(s.goal.x - m.x, s.goal.y - m.y) < REACH.goal) end(s, 'won');
+}
+
+// Fly a copy of the state forward with no further input: exactly what happens
+// if the player changes nothing. Used to draw the dotted path preview.
+export function predictPath(s, seconds = 8, dt = 1 / 60) {
+  const c = {
+    ...s,
+    status: s.status === 'ready' ? 'flying' : s.status,
+    moth: { ...s.moth },
+    lamps: s.lamps.map((l) => ({ ...l })),
+    pollen: s.pollen.map((p) => ({ ...p })),
+    events: [],
+  };
+  const points = [];
+  let n = 0;
+  while (c.status === 'flying' && c.flight - s.flight < seconds) {
+    step(c, dt);
+    if (n++ % 4 === 0) points.push({ x: c.moth.x, y: c.moth.y, sun: c.moth.inSun });
+  }
+  return { points, end: c.status, target: c.moth.target, x: c.moth.x, y: c.moth.y };
 }
 
 export function stars(s) {
