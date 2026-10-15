@@ -1,6 +1,6 @@
 // Offline support: serve from cache, refresh the cache in the background.
-const CACHE = 'duskwing-v1';
-const ASSETS = ['./', 'index.html', 'css/style.css', 'js/main.js', 'js/sim.js', 'js/render.js', 'js/levels.js', 'js/audio.js', 'icon.svg', 'manifest.webmanifest'];
+const CACHE = 'duskwing-v2';
+const ASSETS = ['./', 'index.html', 'css/style.css', 'js/main.js', 'js/sim.js', 'js/render.js', 'js/levels.js', 'js/daily.js', 'js/audio.js', 'icon.svg', 'manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));

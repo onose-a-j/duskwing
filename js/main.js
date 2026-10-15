@@ -1,4 +1,5 @@
 import { LEVELS } from './levels.js';
+import { dailyLevel, dayNumber } from './daily.js';
 import * as S from './sim.js';
 import { createRenderer } from './render.js';
 import * as audio from './audio.js';
@@ -21,18 +22,34 @@ const END_TEXT = {
 let progress = { unlocked: 1, stars: [] };
 try { progress = { ...progress, ...JSON.parse(localStorage.getItem('duskwing.progress') || '{}') }; } catch {}
 const saveProgress = () => { try { localStorage.setItem('duskwing.progress', JSON.stringify(progress)); } catch {} };
+// Best Daily Moth result per day number: { [day]: { stars, time, pollen } }
+let dailyBest = {};
+try { dailyBest = JSON.parse(localStorage.getItem('duskwing.daily') || '{}'); } catch {}
+const saveDaily = () => { try { localStorage.setItem('duskwing.daily', JSON.stringify(dailyBest)); } catch {} };
 
 // ---------- state ----------
 let mode = 'menu';
 let levelIndex = 0;
+let daily = null; // { day, level } while playing the Daily Moth
 let state = S.createState(LEVELS[0]);
 let resultShown = false;
 let endTimer = 0;
 const keys = new Set();
 
 function startLevel(i) {
+  daily = null;
   levelIndex = i;
-  state = S.createState(LEVELS[i], i + 1);
+  begin(LEVELS[i], i + 1, i + 1, `#${i + 1}`);
+}
+
+function startDaily() {
+  const day = dayNumber();
+  daily = { day, level: dailyLevel(day) };
+  begin(daily.level, day, `☾${day}`, '#daily', 'Daily Moth');
+}
+
+function begin(level, seed, label, hash, name = level.name) {
+  state = S.createState(level, seed);
   resultShown = false;
   endTimer = 0;
   R.reset();
@@ -41,13 +58,13 @@ function startLevel(i) {
   $('result').hidden = true;
   $('hud').hidden = false;
   $('btn-release').hidden = false;
-  $('hud-level').textContent = i + 1;
-  $('hud-name').textContent = LEVELS[i].name;
+  $('hud-level').textContent = label;
+  $('hud-name').textContent = name;
   const hint = $('hint');
-  hint.textContent = LEVELS[i].hint;
+  hint.textContent = level.hint;
   hint.hidden = false;
   hint.classList.remove('fade');
-  history.replaceState(null, '', `#${i + 1}`);
+  history.replaceState(null, '', hash);
   updateHud();
 }
 
@@ -76,6 +93,10 @@ function buildLevelGrid() {
     grid.appendChild(b);
   });
   $('btn-play').textContent = progress.stars.some(Boolean) ? 'Continue' : 'Play';
+  const day = dayNumber(), best = dailyBest[day];
+  $('daily-num').textContent = `#${day}`;
+  $('daily-sub').textContent = best ? `${'★'.repeat(best.stars)}${'☆'.repeat(3 - best.stars)} · ${best.time.toFixed(1)}s` : 'New puzzle today';
+  $('btn-daily').classList.toggle('done', !!best);
 }
 
 function doRelease() {
@@ -85,7 +106,7 @@ function doRelease() {
   $('btn-release').hidden = true;
 }
 
-function restart() { if (mode === 'play') startLevel(levelIndex); }
+function restart() { if (mode === 'play') (daily ? startDaily() : startLevel(levelIndex)); }
 
 // ---------- HUD ----------
 function updateHud() {
@@ -99,20 +120,26 @@ function showResult() {
   resultShown = true;
   const s = state, won = s.status === 'won';
   const n = S.stars(s);
-  if (won) {
+  const got = s.pollen.filter((p) => p.got).length;
+  if (won && daily) {
+    const prev = dailyBest[daily.day];
+    if (!prev || n > prev.stars || (n === prev.stars && s.flight < prev.time)) {
+      dailyBest[daily.day] = { stars: n, time: +s.flight.toFixed(1), pollen: got };
+      saveDaily();
+    }
+  } else if (won) {
     progress.stars[levelIndex] = Math.max(progress.stars[levelIndex] || 0, n);
     progress.unlocked = Math.max(progress.unlocked, Math.min(LEVELS.length, levelIndex + 2));
     saveProgress();
   }
-  const got = s.pollen.filter((p) => p.got).length;
-  $('res-title').textContent = won ? (levelIndex === LEVELS.length - 1 ? 'Moonrise! 🌕' : 'Home safe!') : END_TEXT[s.status][0];
+  $('res-title').textContent = won && daily ? `Daily Moth #${daily.day} 🌙` : won ? (levelIndex === LEVELS.length - 1 ? 'Moonrise! 🌕' : 'Home safe!') : END_TEXT[s.status][0];
   $('res-stars').innerHTML = won ? [0, 1, 2].map((k) => `<span class="${k < n ? '' : 'off'}">⭐</span>`).join('') : '🦋';
   $('res-detail').textContent = won
     ? `${s.flight.toFixed(1)}s (par ${s.level.par}s) · 🌼 ${got}/${s.pollen.length}`
     : END_TEXT[s.status][1];
   const next = $('res-next');
   next.hidden = !won;
-  next.textContent = levelIndex === LEVELS.length - 1 ? 'All levels' : 'Next';
+  next.textContent = daily || levelIndex === LEVELS.length - 1 ? 'All levels' : 'Next';
   $('res-share').hidden = !won;
   $('result').hidden = false;
   (won ? next : $('res-retry')).focus({ preventScroll: true });
@@ -121,12 +148,14 @@ function showResult() {
 function shareText() {
   const s = state, n = S.stars(s);
   const got = s.pollen.filter((p) => p.got).length;
+  if (daily) return `Duskwing Daily #${daily.day} 🦋
+${'⭐'.repeat(n)}${'▫️'.repeat(3 - n)} · ⏱ ${s.flight.toFixed(1)}s · 🌼 ${got}/${s.pollen.length}`;
   return `DUSKWING 🦋 Level ${levelIndex + 1}: ${s.level.name}\n${'⭐'.repeat(n)}${'▫️'.repeat(3 - n)} · ⏱ ${s.flight.toFixed(1)}s · 🌼 ${got}/${s.pollen.length}\nMove the sun. Guide the moth.`;
 }
 
 async function share() {
   const text = shareText();
-  const url = location.origin + location.pathname;
+  const url = location.origin + location.pathname + (daily ? '#daily' : '');
   try {
     if (navigator.share) { await navigator.share({ title: 'Duskwing', text, url }); return; }
     await navigator.clipboard.writeText(`${text}\n${url}`);
@@ -229,7 +258,8 @@ $('btn-restart').onclick = restart;
 $('btn-release').onclick = doRelease;
 $('btn-sound').onclick = () => { audio.unlock(); audio.setMuted(!audio.isMuted()); updateHud(); };
 $('res-retry').onclick = restart;
-$('res-next').onclick = () => (levelIndex === LEVELS.length - 1 ? showMenu() : startLevel(levelIndex + 1));
+$('res-next').onclick = () => (daily || levelIndex === LEVELS.length - 1 ? showMenu() : startLevel(levelIndex + 1));
+$('btn-daily').onclick = () => { audio.unlock(); startDaily(); };
 $('res-share').onclick = share;
 
 // ---------- loop ----------
@@ -272,9 +302,10 @@ function frame(now) {
 
 document.addEventListener('visibilitychange', () => { last = performance.now(); });
 
-// Deep link: #3 opens level 3 if it is unlocked.
+// Deep link: #3 opens level 3 if it is unlocked, #daily opens today's Daily Moth.
 const deep = parseInt(location.hash.slice(1), 10);
-if (deep >= 1 && deep <= progress.unlocked) startLevel(deep - 1); else showMenu();
+if (location.hash === '#daily') startDaily();
+else if (deep >= 1 && deep <= progress.unlocked) startLevel(deep - 1); else showMenu();
 layout();
 requestAnimationFrame(frame);
 

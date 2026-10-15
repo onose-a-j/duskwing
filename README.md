@@ -23,6 +23,8 @@ Along the way there are bug zappers that never switch off, spider webs hiding in
 ## Features
 
 - 10 handcrafted levels, each checked by an automated solver (below)
+- **Daily Moth**: one remixed level per day, the same for everyone, with a Wordle-style share card (`#daily` links straight to it)
+- Link-preview card (`og.png`) so shared links unfurl on WhatsApp, X and friends
 - Real-time shadow casting from a directional sun, plus line-of-sight AI for the moth
 - Synthesized sound (Web Audio, no audio files)
 - Shareable results (Web Share API on phones, clipboard on desktop)
@@ -52,10 +54,12 @@ index.html          HUD, menus, result card
 css/style.css       UI styling (mobile-first, safe-area aware)
 js/sim.js           deterministic simulation: sun, shadows, moth AI, hazards
 js/levels.js        level data
+js/daily.js         Daily Moth: date → solver-verified level remix
 js/render.js        canvas renderer + particles
 js/audio.js         Web Audio sound kit
 js/main.js          input, game loop, progress, sharing
 tools/solve.html    level solver
+tools/og.html       renders the og.png link preview
 sw.js               offline cache
 ```
 
@@ -81,3 +85,16 @@ Levels live in `js/levels.js`. The world is 1000×1000 with the ground at y = 94
 ```
 
 Run the solver after editing. A win rate of 0% means the level can't be beaten.
+
+## Daily Moth
+
+`js/daily.js` turns a seed into a remix of a handcrafted level: maybe mirrored, with a new sun start, new lamp states and moved pollen. Each day maps to one seed from `POOL`, and every seed in the pool has been proven winnable by the solver. Day 1 is 15 October 2026, in the player's local calendar.
+
+After changing levels or `makeVariant`, rebuild the pool:
+
+1. Open `tools/solve.html?daily=scan&from=1&to=120&n=300` and paste the "winnable seeds" list into `POOL`.
+2. Open `tools/solve.html?daily&n=300` and check that it ends with `PASS`.
+
+## Link preview
+
+`og.png` (1200×630) is drawn by the game's own renderer. To redraw it, open `tools/og.html`, click **Download og.png** and save it over the one in the repo root. The `og:` and `twitter:` tags in `index.html` point at `https://onose-a-j.github.io/duskwing/`. Change them if the game moves.

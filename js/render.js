@@ -21,8 +21,7 @@ export function createRenderer(canvas) {
   let particles = [];
   const windowsCache = new Map();
 
-  function resize(w, h, top, bottom) {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  function resize(w, h, top, bottom, dpr = Math.min(window.devicePixelRatio || 1, 2)) {
     view.dpr = dpr; view.w = w; view.h = h;
     canvas.width = shade.width = Math.round(w * dpr);
     canvas.height = shade.height = Math.round(h * dpr);

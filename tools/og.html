@@ -1,0 +1,79 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Duskwing link preview</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Outfit:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; padding: 16px; background: #111; color: #ddd; font: 14px/1.5 system-ui, sans-serif; }
+  canvas { display: block; width: 100%; max-width: 1200px; height: auto; border: 1px solid #333; }
+  a { color: #ffd27a; }
+</style>
+<p>Renders the 1200×630 <code>og.png</code> link preview with the game's own renderer. <a id="dl" download="og.png">Download og.png</a> and save it to the repo root.</p>
+<canvas id="og"></canvas>
+<script type="module">
+import * as S from '../js/sim.js';
+import { createRenderer } from '../js/render.js';
+
+const OW = 1200, OH = 630;
+const canvas = document.getElementById('og');
+const R = createRenderer(canvas);
+
+// A small scene built for the card: low sun on the left, rooftops throwing long
+// shadows to the right, and the moth riding a shadow to the moon jar.
+const level = {
+  sun: 152, par: 10,
+  moth: [540, 590], goal: [900, 800],
+  blocks: [[60, 600, 150, 340], [250, 700, 110, 240], [380, 470, 26, 150], [560, 760, 120, 180]],
+  lamps: [],
+  webs: [],
+  pollen: [[790, 730], [470, 860]],
+};
+
+await document.fonts.load('800 120px Fraunces');
+await document.fonts.load('400 30px Outfit');
+
+R.resize(OW, OH, 0, 0, 1);
+canvas.style.width = canvas.style.height = '';
+// Crop the 1000×1000 world to the lower band so it fills the card edge to edge.
+R.view.s = OW / S.W;
+R.view.ox = 0;
+R.view.oy = OH - 946 * R.view.s;
+
+const s = S.createState(level, 7);
+S.release(s);
+const STEP = 1 / 120, FRAME = 1 / 60, T = +new URLSearchParams(location.search).get('t') || 1.1;
+let clock = 0;
+while (clock < T) {
+  for (let k = 0; k < 2; k++) S.step(s, STEP);
+  s.events.forEach(R.event); s.events.length = 0;
+  clock += FRAME;
+  R.draw(s, clock, FRAME);
+}
+
+const ctx = canvas.getContext('2d');
+ctx.setTransform(1, 0, 0, 1, 0, 0);
+// Darken the top-left so the title reads on any sky.
+const g = ctx.createLinearGradient(0, 0, 0, 330);
+g.addColorStop(0, 'rgba(14,8,32,0.55)');
+g.addColorStop(1, 'rgba(14,8,32,0)');
+ctx.fillStyle = g;
+ctx.fillRect(0, 0, OW, 330);
+ctx.textBaseline = 'alphabetic';
+ctx.shadowColor = 'rgba(255,154,90,0.55)';
+ctx.shadowBlur = 40;
+ctx.font = '800 132px Fraunces';
+ctx.fillStyle = '#f6eedd';
+ctx.fillText('Dusk', 64, 170);
+const dw = ctx.measureText('Dusk').width;
+ctx.fillStyle = '#ffd27a';
+ctx.fillText('wing', 64 + dw, 170);
+ctx.shadowColor = 'rgba(0,0,0,0.6)';
+ctx.shadowBlur = 12;
+ctx.font = '400 34px Outfit';
+ctx.fillStyle = '#f6eedd';
+ctx.fillText('Move the sun. Guide the moth.', 70, 226);
+ctx.shadowBlur = 0;
+
+document.getElementById('dl').href = canvas.toDataURL('image/png');
+window.__ready = true;
+</script>

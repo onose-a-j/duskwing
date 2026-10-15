@@ -163,6 +163,23 @@ button.ghost { background: transparent; border-color: transparent; color: var(--
 .tag { margin: 0; color: var(--muted); font-size: 18px; }
 .big { font-size: 20px; padding: 14px 48px; border-radius: 999px; }
 
+.daily {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 236px;
+  padding: 10px 20px 10px 14px;
+  border-radius: 999px;
+  border-color: rgba(190, 210, 255, 0.35);
+  box-shadow: 0 0 24px rgba(170, 205, 255, 0.18);
+  text-align: left;
+}
+.daily-moon { font-size: 26px; line-height: 1; }
+.daily-text { display: flex; flex-direction: column; line-height: 1.2; }
+.daily-text b { font-weight: 600; font-size: 17px; }
+.daily-text small { color: var(--muted); font-size: 12px; }
+.daily.done .daily-text small { color: var(--sun); letter-spacing: 0.5px; }
+
 .levels {
   display: grid;
   grid-template-columns: repeat(5, 56px);

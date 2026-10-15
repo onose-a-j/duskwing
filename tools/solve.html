@@ -3,16 +3,28 @@
 <title>Duskwing level solver</title>
 <style>body{font:14px/1.5 ui-monospace,monospace;background:#111;color:#ddd;padding:16px}pre{white-space:pre-wrap}</style>
 <h1>Duskwing level solver</h1>
-<p>Random-policy search: proves each level is beatable and estimates difficulty.</p>
+<p>Random-policy search: proves each level is beatable and estimates difficulty.
+<code>?daily</code> checks the Daily Moth pool. <code>?daily=scan&amp;from=1&amp;to=150&amp;n=400</code> finds winnable seeds for it.</p>
 <pre id="out">running…</pre>
 <script type="module">
 import { LEVELS } from '../js/levels.js';
 import * as S from '../js/sim.js';
+import { POOL, makeVariant } from '../js/daily.js';
 
 const DT = 1 / 60, MAX_FLIGHT = 40;
 const params = new URLSearchParams(location.search);
 const TRIALS = +params.get('n') || 1500;
-const only = params.has('l') ? [+params.get('l')] : LEVELS.map((_, i) => i);
+const daily = params.get('daily');
+let jobs;
+if (daily === 'scan') {
+  const from = +params.get('from') || 1, to = +params.get('to') || 150;
+  jobs = [];
+  for (let seed = from; seed <= to; seed++) jobs.push({ seed, label: `seed ${seed}`, level: makeVariant(seed) });
+} else if (daily != null) {
+  jobs = POOL.map((seed) => ({ seed, label: `seed ${seed}`, level: makeVariant(seed) }));
+} else {
+  jobs = (params.has('l') ? [+params.get('l')] : LEVELS.map((_, i) => i)).map((i) => ({ li: i, label: `${i + 1}.`, level: LEVELS[i] }));
+}
 
 function randomPolicy(rng, level) {
   const toggles = (level.lamps || []).map((l, i) => [l, i]).filter(([l]) => (l[3] || 'lamp') === 'lamp').map(([, i]) => i);
@@ -72,9 +84,9 @@ function run(level, pol, seed) {
 const out = document.getElementById('out');
 const lines = [];
 const results = [];
-for (const li of only) {
-  const level = LEVELS[li];
-  const rng = S.mulberry32(1234 + li);
+for (const job of jobs) {
+  const { level } = job;
+  const rng = S.mulberry32(1234 + (job.li ?? job.seed));
   let wins = 0, best = Infinity, three = 0, bestPol = null;
   const fails = {};
   for (let n = 0; n < TRIALS; n++) {
@@ -86,13 +98,17 @@ for (const li of only) {
       if (s.flight < best) { best = s.flight; bestPol = pol; }
     } else fails[s.status] = (fails[s.status] || 0) + 1;
   }
-  const r = { li, name: level.name, winRate: wins / TRIALS, three: three / TRIALS, best: +best.toFixed(2), par: level.par, fails };
+  const r = { li: job.li, seed: job.seed, name: level.name, winRate: wins / TRIALS, three: three / TRIALS, best: +best.toFixed(2), par: level.par, fails };
   results.push(r);
-  lines.push(`${li + 1}. ${level.name.padEnd(16)} win ${(r.winRate * 100).toFixed(1).padStart(5)}%  3★ ${(r.three * 100).toFixed(1).padStart(5)}%  best ${r.best}s (par ${level.par})  fails ${JSON.stringify(fails)}`);
+  lines.push(`${job.label} ${level.name.padEnd(16)}${job.seed ? (level.flip ? ' (m)' : '    ') : ''} win ${(r.winRate * 100).toFixed(1).padStart(5)}%  3★ ${(r.three * 100).toFixed(1).padStart(5)}%  best ${r.best}s (par ${level.par})  fails ${JSON.stringify(fails)}`);
   if (bestPol) lines.push(`     best: sun0=${bestPol.sun0.toFixed(0)} lamps0=${JSON.stringify(bestPol.lamps0)} autoOff=${JSON.stringify(bestPol.autoOff)} tracker=${bestPol.tracker} events=${JSON.stringify(bestPol.events.map(e => e.sun != null ? `${e.t.toFixed(1)}s sun ${e.sun.toFixed(0)}` : `${e.t.toFixed(1)}s lamp ${e.lamp}`))}`);
   out.textContent = lines.join('\n');
   await new Promise((r) => setTimeout(r));
 }
 window.__results = results;
+const lost = results.filter((r) => r.winRate === 0);
+if (daily === 'scan') lines.push(`\nwinnable seeds (${results.length - lost.length}/${results.length}):\n[${results.filter((r) => r.winRate > 0).map((r) => r.seed).join(', ')}]`);
+if (!jobs.length) lines.push('FAIL: nothing to check (is the daily pool empty?)');
+else lines.push(lost.length ? `\nFAIL: ${lost.length} unwinnable: ${lost.map((r) => r.seed ?? r.name).join(', ')}` : '\nPASS: every level winnable');
 out.textContent = lines.join('\n') + '\n\ndone';
 </script>
