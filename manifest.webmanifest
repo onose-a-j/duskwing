@@ -1,0 +1,14 @@
+{
+  "name": "Duskwing",
+  "short_name": "Duskwing",
+  "description": "Move the sun. Guide the moth.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#1b1036",
+  "theme_color": "#1b1036",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

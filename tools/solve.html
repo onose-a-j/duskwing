@@ -1,0 +1,98 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Duskwing level solver</title>
+<style>body{font:14px/1.5 ui-monospace,monospace;background:#111;color:#ddd;padding:16px}pre{white-space:pre-wrap}</style>
+<h1>Duskwing level solver</h1>
+<p>Random-policy search: proves each level is beatable and estimates difficulty.</p>
+<pre id="out">running…</pre>
+<script type="module">
+import { LEVELS } from '../js/levels.js';
+import * as S from '../js/sim.js';
+
+const DT = 1 / 60, MAX_FLIGHT = 40;
+const params = new URLSearchParams(location.search);
+const TRIALS = +params.get('n') || 1500;
+const only = params.has('l') ? [+params.get('l')] : LEVELS.map((_, i) => i);
+
+function randomPolicy(rng, level) {
+  const toggles = (level.lamps || []).map((l, i) => [l, i]).filter(([l]) => (l[3] || 'lamp') === 'lamp').map(([, i]) => i);
+  const events = [];
+  const k = Math.floor(rng() * 6);
+  for (let i = 0; i < k; i++) {
+    const t = rng() * 20;
+    if (toggles.length && rng() < 0.5) events.push({ t, lamp: toggles[Math.floor(rng() * toggles.length)] });
+    else events.push({ t, sun: S.SUN_MIN + rng() * (S.SUN_MAX - S.SUN_MIN) });
+  }
+  events.sort((a, b) => a.t - b.t);
+  return {
+    sun0: rng() < 0.3 ? level.sun : S.SUN_MIN + rng() * (S.SUN_MAX - S.SUN_MIN),
+    lamps0: toggles.filter(() => rng() < 0.5),
+    events,
+    autoOff: toggles.filter(() => rng() < 0.7),   // switch a lamp off once the moth reaches it
+    autoOffDelay: rng() * 1.5,
+    tracker: rng() < 0.6,                          // nudge the sun to keep the moth shaded
+  };
+}
+
+function run(level, pol, seed) {
+  const s = S.createState(level, seed);
+  S.setSun(s, pol.sun0);
+  s.lamps.forEach((l, i) => { if (l.kind === 'lamp') l.on = !!level.lamps[i][2]; });
+  for (const i of pol.lamps0) S.toggleLamp(s, i);
+  S.release(s);
+  let ei = 0;
+  const reachedAt = {};
+  while (s.status === 'flying' && s.flight < MAX_FLIGHT) {
+    while (ei < pol.events.length && pol.events[ei].t <= s.flight) {
+      const e = pol.events[ei++];
+      if (e.sun != null) S.setSun(s, e.sun); else S.toggleLamp(s, e.lamp);
+    }
+    const m = s.moth;
+    if (typeof m.target === 'number' && pol.autoOff.includes(m.target)) {
+      const l = s.lamps[m.target];
+      if (Math.hypot(l.x - m.x, l.y - m.y) < 45) {
+        reachedAt[m.target] ??= s.flight;
+        if (s.flight - reachedAt[m.target] > pol.autoOffDelay && l.on) S.toggleLamp(s, m.target);
+      }
+    }
+    if (pol.tracker && m.inSun) {
+      const blocks = S.blocksAt(level, s.t);
+      for (let d = 2; d <= 4; d += 2) {
+        for (const sgn of [1, -1]) {
+          const a = s.sun + sgn * d;
+          if (a >= S.SUN_MIN && a <= S.SUN_MAX && S.inShadow(m.x, m.y, blocks, a)) { S.setSun(s, a); d = 99; break; }
+        }
+      }
+    }
+    S.step(s, DT);
+  }
+  return s;
+}
+
+const out = document.getElementById('out');
+const lines = [];
+const results = [];
+for (const li of only) {
+  const level = LEVELS[li];
+  const rng = S.mulberry32(1234 + li);
+  let wins = 0, best = Infinity, three = 0, bestPol = null;
+  const fails = {};
+  for (let n = 0; n < TRIALS; n++) {
+    const pol = randomPolicy(rng, level);
+    const s = run(level, pol, 1 + n);
+    if (s.status === 'won') {
+      wins++;
+      if (S.stars(s) === 3) three++;
+      if (s.flight < best) { best = s.flight; bestPol = pol; }
+    } else fails[s.status] = (fails[s.status] || 0) + 1;
+  }
+  const r = { li, name: level.name, winRate: wins / TRIALS, three: three / TRIALS, best: +best.toFixed(2), par: level.par, fails };
+  results.push(r);
+  lines.push(`${li + 1}. ${level.name.padEnd(16)} win ${(r.winRate * 100).toFixed(1).padStart(5)}%  3★ ${(r.three * 100).toFixed(1).padStart(5)}%  best ${r.best}s (par ${level.par})  fails ${JSON.stringify(fails)}`);
+  if (bestPol) lines.push(`     best: sun0=${bestPol.sun0.toFixed(0)} lamps0=${JSON.stringify(bestPol.lamps0)} autoOff=${JSON.stringify(bestPol.autoOff)} tracker=${bestPol.tracker} events=${JSON.stringify(bestPol.events.map(e => e.sun != null ? `${e.t.toFixed(1)}s sun ${e.sun.toFixed(0)}` : `${e.t.toFixed(1)}s lamp ${e.lamp}`))}`);
+  out.textContent = lines.join('\n');
+  await new Promise((r) => setTimeout(r));
+}
+window.__results = results;
+out.textContent = lines.join('\n') + '\n\ndone';
+</script>

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Duskwing</title>
+  <meta name="description" content="Move the sun. Guide the moth. A 2D shadow-and-light puzzle game for phone and PC.">
+  <meta name="theme-color" content="#1b1036">
+  <meta property="og:title" content="Duskwing: move the sun, guide the moth">
+  <meta property="og:description" content="Sunlight burns. Shadows are safe. Lamps lure. Can you get the moth to the moon jar?">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Outfit:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <canvas id="game" aria-label="Duskwing game"></canvas>
+
+  <header id="hud" class="hud" hidden>
+    <button id="btn-menu" class="icon" aria-label="Levels">☰</button>
+    <div class="hud-title"><b id="hud-level">1</b><span id="hud-name"></span></div>
+    <div class="hud-stats"><span id="hud-pollen">🌼 0/0</span><span id="hud-time">0.0s</span></div>
+    <button id="btn-restart" class="icon" aria-label="Restart (R)">↻</button>
+    <button id="btn-sound" class="icon" aria-label="Toggle sound">🔊</button>
+  </header>
+
+  <div id="hint" class="hint" hidden></div>
+  <button id="btn-release" class="release" hidden>Release <span>▶</span></button>
+
+  <section id="menu" class="screen">
+    <h1>Dusk<span>wing</span></h1>
+    <p class="tag">Move the sun. Guide the moth.</p>
+    <button id="btn-play" class="primary big">Play</button>
+    <div id="levels" class="levels"></div>
+    <ul class="how">
+      <li><b>Drag</b> anywhere to move the sun <small>(← → or mouse wheel)</small></li>
+      <li><b>Tap</b> a lamp to switch it. The moth chases the brightest light it can see</li>
+      <li><b>Shadows</b> keep it alive. Sunlight burns</li>
+    </ul>
+  </section>
+
+  <section id="result" class="modal" hidden>
+    <div class="card">
+      <h2 id="res-title"></h2>
+      <div id="res-stars" class="stars"></div>
+      <p id="res-detail"></p>
+      <div class="row">
+        <button id="res-retry">Retry</button>
+        <button id="res-next" class="primary">Next</button>
+      </div>
+      <button id="res-share" class="ghost">Share your run</button>
+    </div>
+  </section>
+
+  <div id="toast" class="toast" role="status"></div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
